@@ -780,12 +780,10 @@ function renderPhase2() {
   document.getElementById('fillBox').innerHTML = tmpl;
 
   const choices = p.p2_choices || [];
-  const usedChoices = Object.values(state.phase2Answers).filter(Boolean);
   const choiceHtml = choices.map(c => {
-    const used = usedChoices.includes(c) ? ' used' : '';
-    return `<button class="choice${used}" onclick="pickChoice('${c.replace(/'/g,"\\'")}')">${c}</button>`;
+    return `<button class="choice" onclick="pickChoice('${c.replace(/'/g,"\\'")}')">${c}</button>`;
   }).join('');
-  document.getElementById('p2Choices').innerHTML = `<div class="choice-title">📝 보기에서 골라 빈칸을 눌러 채우세요</div><div class="choice-grid">${choiceHtml}</div>`;
+  document.getElementById('p2Choices').innerHTML = `<div class="choice-title">📝 보기에서 골라 빈칸을 눌러 채우세요 (같은 보기 중복 사용 가능)</div><div class="choice-grid">${choiceHtml}</div>`;
 }
 function activateBlank(k) {
   if (state.phase2Answers[k]) {
