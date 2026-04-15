@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>증명 학습 인터랙티브 목업</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,"Segoe UI",sans-serif;margin:0;background:#f3f4f6;color:#111;min-height:100vh}
+  .app{max-width:440px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 4px 20px rgba(0,0,0,.08);position:relative;overflow:hidden}
+  .topbar{background:#1e40af;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+  .topbar .back{background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;font-weight:700}
+  .topbar h1{margin:0;font-size:15px;font-weight:600;flex:1}
+  .phase-badge{background:rgba(255,255,255,.25);padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600}
+  .progress-bar{height:4px;background:#e5e7eb;position:relative}
+  .progress-bar>div{height:100%;background:#fbbf24;transition:width .4s}
+
+  /* 공통 */
+  .screen{display:none;padding:14px 18px 100px;animation:fadeIn .25s}
+  .screen.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h2{margin:0 0 4px;font-size:17px}
+  .sub{color:#6b7280;font-size:13px;margin-bottom:12px}
+  .btn{padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
+  .btn-primary{background:#1e40af;color:#fff}
+  .btn-success{background:#16a34a;color:#fff}
+  .btn-secondary{background:#e5e7eb;color:#374151}
+  .btn-outline{background:#fff;color:#1e40af;border:1.5px solid #1e40af}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .footer-bar{position:fixed;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;padding:12px 18px;background:#fff;border-top:1px solid #e5e7eb;display:flex;gap:8px;z-index:20}
+
+  /* 홈 */
+  .home-hero{padding:20px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:14px;margin-bottom:14px}
+  .home-hero h3{margin:0;font-size:13px;opacity:.9;font-weight:500}
+  .home-hero .big{font-size:28px;font-weight:700;margin-top:4px}
+  .home-hero .small{font-size:12px;opacity:.85;margin-top:4px}
+  .proof-list-title{font-size:13px;font-weight:600;margin:12px 0 8px;color:#374151}
+  .proof-item{padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+  .proof-item:hover{border-color:#1e40af;box-shadow:0 2px 8px rgba(30,64,175,.12)}
+  .proof-item.done{background:#f0fdf4;border-color:#16a34a}
+  .proof-item .title{font-weight:700;font-size:14px;margin-bottom:4px}
+  .proof-item .meta{font-size:11px;color:#6b7280;display:flex;gap:10px}
+  .proof-item .meta .box-badge{background:#eff6ff;color:#1e40af;padding:1px 7px;border-radius:4px;font-weight:600}
+  .proof-item.done .box-badge{background:#d1fae5;color:#16a34a}
+
+  /* GIVEN/THEOREM */
+  .given{padding:10px 14px;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:6px;font-size:13px;line-height:1.55;margin-bottom:8px}
+  .given .tag{display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-right:6px}
+  .theorem{padding:10px 14px;background:#eff6ff;border-left:3px solid #2563eb;border-radius:6px;font-size:14px;margin-bottom:12px}
+  .theorem .tag{display:inline-block;background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-right:6px}
+
+  /* 도형 */
+  .figure-box{background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:10px;text-align:center;margin-bottom:12px;position:relative}
+  .figure-caption{text-align:center;color:#6b7280;font-size:11px;margin-top:4px}
+
+  /* Phase 1 카드 (탭 방식) */
+  .hint-box{padding:10px 12px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;font-size:12px;color:#92400e;margin-bottom:10px}
+  .p1-row{display:flex;align-items:stretch;gap:6px;margin-bottom:8px}
+  .card{flex:1;padding:12px 12px 12px 40px;background:#fff;border:1.5px solid #d1d5db;border-radius:10px;font-size:13.5px;line-height:1.5;position:relative;user-select:none;transition:all .15s;cursor:pointer}
+  .card.selected{border-color:#f59e0b;background:#fffbeb;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+  .card .num{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;background:#1e40af;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .card.correct{border-color:#16a34a;background:#f0fdf4}
+  .card.correct .num{background:#16a34a}
+  .card.wrong{border-color:#dc2626;background:#fef2f2}
+  .card.wrong .num{background:#dc2626}
+  .p1-arrows{display:flex;flex-direction:column;gap:4px}
+  .p1-arrows button{width:36px;flex:1;border:1.5px solid #d1d5db;background:#f9fafb;border-radius:8px;font-size:14px;font-weight:700;color:#1e40af;cursor:pointer;padding:0}
+  .p1-arrows button:active{background:#1e40af;color:#fff}
+  .p1-arrows button:disabled{opacity:.3;cursor:not-allowed}
+
+  /* Phase 2 객관식 */
+  .fill-box{padding:14px;background:#fafafa;border-radius:10px;line-height:2.2;font-size:13.5px;margin-bottom:10px}
+  .blank{display:inline-block;min-width:72px;padding:4px 10px;border:1.5px dashed #1e40af;border-radius:6px;font-size:13px;text-align:center;font-family:inherit;cursor:pointer;background:#fff;color:#9ca3af;font-weight:600}
+  .blank.active{border-style:solid;background:#fef3c7;border-color:#f59e0b;color:#92400e;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+  .blank.filled{border-style:solid;background:#dbeafe;color:#1e40af}
+  .blank.correct{background:#d1fae5;border-color:#16a34a;border-style:solid;color:#065f46}
+  .blank.wrong{background:#fee2e2;border-color:#dc2626;border-style:solid;color:#991b1b}
+  .choice-title{font-size:12px;font-weight:600;color:#374151;margin:10px 0 6px}
+  .choice-grid{display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px}
+  .choice{padding:8px 14px;background:#f3f4f6;border:1.5px solid #d1d5db;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;transition:all .12s}
+  .choice:active{transform:scale(.96)}
+  .choice:hover{background:#eff6ff;border-color:#1e40af;color:#1e40af}
+  .choice.used{opacity:.35;pointer-events:none;background:#e5e7eb}
+
+  /* Phase 3 textarea */
+  .prompt-box{padding:12px 14px;background:#f9fafb;border-radius:8px;font-size:13px;margin-bottom:10px;line-height:1.6}
+  .proof-ta{width:100%;min-height:180px;padding:12px;border:1.5px solid #d1d5db;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical}
+  .proof-ta:focus{outline:none;border-color:#1e40af}
+
+  /* 결과 히어로 */
+  .hero{padding:24px 18px 10px;text-align:center;border-radius:14px;margin-bottom:12px}
+  .hero.pass{background:linear-gradient(180deg,#d1fae5,#fff)}
+  .hero.partial{background:linear-gradient(180deg,#fef3c7,#fff)}
+  .hero.fail{background:linear-gradient(180deg,#fee2e2,#fff)}
+  .hero.pending{background:linear-gradient(180deg,#dbeafe,#fff)}
+  .hero .icon{font-size:52px;margin-bottom:4px}
+  .hero h2{font-size:22px;margin:4px 0}
+  .hero .msg{font-size:13px;color:#6b7280}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 12px;padding:12px;background:#f9fafb;border-radius:10px}
+  .stats>div{text-align:center}
+  .stats .label{font-size:10px;color:#6b7280;margin-bottom:2px}
+  .stats .value{font-size:15px;font-weight:700}
+
+  /* SRS */
+  .srs{background:#fff;border:2px solid #1e40af;border-radius:10px;padding:14px;margin-bottom:12px;text-align:center}
+  .srs .label{font-size:12px;color:#6b7280;margin-bottom:6px}
+  .srs .boxes{display:flex;justify-content:space-between;gap:4px}
+  .srs .b{flex:1;height:40px;border-radius:6px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-weight:700;color:#9ca3af;transition:all .4s}
+  .srs .b.reached{background:#c7d2fe;color:#1e40af}
+  .srs .b.cur{background:#1e40af;color:#fff;transform:scale(1.08);box-shadow:0 3px 10px rgba(30,64,175,.35)}
+  .box-gain{background:linear-gradient(135deg,#fef3c7,#fde68a);padding:12px 14px;margin-bottom:12px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:13px}
+  .box-gain .emoji{font-size:28px}
+
+  .teacher-note{background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 12px;border-radius:6px;font-size:12px;margin-bottom:10px}
+  .review-banner{background:#eff6ff;border:1px solid #bfdbfe;padding:10px 12px;border-radius:8px;font-size:12px;color:#1e3a8a;margin-bottom:10px}
+
+  /* 토스트 */
+  .toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);padding:10px 16px;background:#111;color:#fff;border-radius:20px;font-size:13px;z-index:100;animation:toastIn .3s}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+  /* phase dots */
+  .phase-dots{display:flex;justify-content:center;gap:6px;padding:10px 0 0}
+  .phase-dots .dot{width:8px;height:8px;border-radius:50%;background:#d1d5db;transition:all .3s}
+  .phase-dots .dot.active{background:#1e40af;width:24px;border-radius:4px}
+  .phase-dots .dot.done{background:#16a34a}
+
+  /* Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:20px}
+  .modal-overlay.show{display:flex}
+  .modal{background:#fff;border-radius:14px;padding:20px;max-width:380px;width:100%}
+  .modal h3{margin:0 0 8px}
+  .modal p{font-size:13px;color:#374151;line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 상단바 -->
+  <div class="topbar">
+    <button class="back" id="backBtn" onclick="goHome()">←</button>
+    <h1 id="topTitle">증명 학습</h1>
+    <span class="phase-badge" id="phaseBadge">홈</span>
+  </div>
+  <div class="progress-bar"><div id="progressFill" style="width:0%"></div></div>
+
+  <!-- 홈 -->
+  <div id="screenHome" class="screen active">
+    <div class="home-hero">
+      <h3>이루다 학생</h3>
+      <div class="big" id="homeProgress">0 / 18 증명</div>
+      <div class="small">중1 수학 전체 · 평면도형 · 수와연산 · 문자와식 · 방정식 · 그래프</div>
+    </div>
+    <div class="proof-list-title">📚 배정된 증명</div>
+    <div id="proofList"></div>
+  </div>
+
+  <!-- Phase 1: 순서 맞추기 -->
+  <div id="screenPhase1" class="screen">
+    <h2>🔵 Phase 1 — 순서 맞추기</h2>
+    <div class="sub">▲▼ 버튼 또는 두 카드를 차례로 탭해서 순서를 바꾸세요</div>
+    <div class="given"><span class="tag">GIVEN</span><span id="given1"></span></div>
+    <div class="theorem"><span class="tag">THEOREM</span><span id="theorem1"></span></div>
+    <div class="figure-box" id="figureBox"></div>
+    <div class="figure-caption">같은 색 호 = 엇각(같은 각)</div>
+    <div class="hint-box">💡 <b>두 카드를 차례로 탭</b>하면 위치가 바뀝니다. 또는 오른쪽 <b>▲▼</b> 버튼으로 한 칸씩 이동!</div>
+    <div id="phase1Cards"></div>
+    <div class="phase-dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+
+  <!-- Phase 1 결과 -->
+  <div id="screenPhase1Result" class="screen">
+    <div class="hero" id="p1Hero">
+      <div class="icon" id="p1Icon">🎉</div>
+      <h2 id="p1Title">정답입니다!</h2>
+      <div class="msg" id="p1Msg">Phase 1 통과</div>
+    </div>
+    <div class="stats">
+      <div><div class="label">맞은 카드</div><div class="value" id="p1Correct">4/4</div></div>
+      <div><div class="label">시간</div><div class="value" id="p1Time">0초</div></div>
+      <div><div class="label">시도</div><div class="value" id="p1Tries">1회</div></div>
+    </div>
+    <div id="p1Feedback"></div>
+  </div>
+
+  <!-- Phase 2: 빈칸 -->
+  <div id="screenPhase2" class="screen">
+    <h2>🟢 Phase 2 — 빈칸 채우기</h2>
+    <div class="sub">증명 흐름을 따라 빈칸을 채우세요</div>
+    <div class="figure-box" id="figureBox2"></div>
+    <div class="fill-box" id="fillBox"></div>
+    <div id="p2Choices"></div>
+    <div class="phase-dots"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+  </div>
+
+  <!-- Phase 2 결과 -->
+  <div id="screenPhase2Result" class="screen">
+    <div class="hero" id="p2Hero">
+      <div class="icon" id="p2Icon">👍</div>
+      <h2 id="p2Title">부분 정답</h2>
+      <div class="msg" id="p2Msg"></div>
+    </div>
+    <div class="fill-box" id="p2Review"></div>
+    <div class="hint-box" id="p2Hint"></div>
+  </div>
+
+  <!-- Phase 3: 백지증명 -->
+  <div id="screenPhase3" class="screen">
+    <h2>🔴 Phase 3 — 백지 증명</h2>
+    <div class="sub">스스로 증명을 완성해보세요</div>
+    <div class="prompt-box" id="phase3Prompt"></div>
+    <textarea class="proof-ta" id="proofText" placeholder="여기에 풀이를 써주세요..."></textarea>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="showHint()">🔍 도형 힌트 보기 (1회)</button>
+    <div id="phase3FigureHint" style="display:none;margin-top:10px"></div>
+    <div class="phase-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+  </div>
+
+  <!-- Phase 3 검토 대기 -->
+  <div id="screenReview" class="screen">
+    <div class="hero pending"><div class="icon">📝</div><h2>제출 완료!</h2><div class="msg">선생님이 곧 확인할 거예요</div></div>
+    <div class="review-banner">✍️ Phase 3는 자동채점이 어려워서 <b>담당 선생님(서재용)</b>이 직접 피드백을 드려요. (목업: 3초 후 자동 승인)</div>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:6px">제출한 풀이:</div>
+    <div style="padding:10px;background:#fafafa;border-radius:8px;font-size:12px;line-height:1.6" id="submittedText"></div>
+    <div style="text-align:center;padding:20px">
+      <div style="display:inline-block;width:40px;height:40px;border:3px solid #1e40af;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div>
+    </div>
+  </div>
+
+  <!-- 승인 완료 + SRS -->
+  <div id="screenApproved" class="screen">
+    <div class="hero pass"><div class="icon">✨</div><h2>승인됐어요!</h2><div class="msg">서재용 선생님 피드백</div></div>
+    <div class="teacher-note"><b>선생님 코멘트:</b><br>"보조선 긋는 이유까지 적으면 더 좋았어요. 엇각 사용 정확합니다 👍"</div>
+    <div class="box-gain">
+      <div class="emoji">📦</div>
+      <div>
+        <div style="font-weight:700">박스 <span id="boxBefore">1</span> → 박스 <span id="boxAfter">2</span> 승급!</div>
+        <div style="font-size:11px;color:#6b7280">다음 복습: <span id="nextReview">3일</span> 후</div>
+      </div>
+    </div>
+    <div class="srs">
+      <div class="label">SRS 박스 (간격 반복)</div>
+      <div class="boxes" id="srsBoxes"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 푸터 버튼 (동적) -->
+<div class="footer-bar" id="footer"></div>
+
+<!-- 토스트 -->
+<div id="toast" style="display:none" class="toast"></div>
+
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<script>
+// ── 데이터 ──
+const PROOFS = [
+  // ── 평면도형 (7) ──
+  { id:'prf_m1_tri_angle_sum', title:'삼각형 내각의 합', unit:'평면도형', difficulty:2, box:1, done:false,
+    given:'두 직선이 <b>평행</b>하면 <b>엇각</b>이 같다 · 일직선 위 각의 합 = 180°',
+    theorem:'삼각형 ABC에서 <b>∠A + ∠B + ∠C = 180°</b>',
+    figure:'tri_sum',
+    p1_cards:[
+      { key:'A', text:'꼭짓점 A에서 ℓ 위의 세 각: <b>∠DAB+∠BAC+∠CAE=180°</b> (평각).', answer_pos:3 },
+      { key:'B', text:'꼭짓점 A를 지나고 BC에 <b>평행</b>한 직선 ℓ을 긋는다.', answer_pos:1 },
+      { key:'C', text:'엇각 대입: <b>∠A+∠B+∠C=180°</b>. 증명 완료.', answer_pos:4 },
+      { key:'D', text:'ℓ∥BC이므로 <b style="color:#dc2626">∠B=∠DAB</b>, <b style="color:#d97706">∠C=∠EAC</b>.', answer_pos:2 },
+    ], p1_answer:['B','D','A','C'],
+    p2_template:'① A를 지나고 BC에 {1}한 ℓ을 긋는다.<br>② ℓ∥BC이므로 {2}에 의해 ∠B=∠DAB, ∠C=∠EAC.<br>③ A에서 평각: ∠DAB+∠BAC+∠CAE = {3}°.<br>④ 따라서 ∠A+∠B+∠C = {4}°.',
+    p2_answers:{'1':['평행'],'2':['엇각'],'3':['180'],'4':['180']},
+    p2_choices:['평행','수직','엇각','동위각','180','90','360','60'],
+    p3_prompt:'보조선 ℓ을 이용해 <b>∠A+∠B+∠C=180°</b>임을 증명하시오.' },
+
+  { id:'prf_m1_vertical', title:'맞꼭지각의 크기는 같다', unit:'평면도형', difficulty:1, box:1, done:false,
+    given:'일직선 위 두 각의 합 = 180° (평각)',
+    theorem:'두 직선이 만나면 <b>맞꼭지각이 같다</b> (∠1=∠3)',
+    figure:'vertical',
+    p1_cards:[
+      { key:'A', text:'∠2+∠3=180° (또 다른 평각).', answer_pos:2 },
+      { key:'B', text:'∠1+∠2=180° (일직선 위 평각).', answer_pos:1 },
+      { key:'C', text:'두 식에서 ∠1 = 180°−∠2 = ∠3. ✅', answer_pos:3 },
+    ], p1_answer:['B','A','C'],
+    p2_template:'① ∠1+∠2 = {1}° (평각).<br>② ∠2+∠3 = {2}° (평각).<br>③ ∠1 = 180°−∠2 = {3}.',
+    p2_answers:{'1':['180'],'2':['180'],'3':['∠3']},
+    p2_choices:['180','90','360','∠1','∠2','∠3','∠4'],
+    p3_prompt:'두 직선이 만날 때 <b>∠1=∠3</b>을 평각의 성질로 증명하시오.' },
+
+  { id:'prf_m1_alt_angles', title:'평행선의 동위각·엇각', unit:'평면도형', difficulty:2, box:1, done:false,
+    given:'평행선의 정의 · 평각=180°',
+    theorem:'두 직선이 평행이면 <b>동위각이 같고, 엇각도 같다</b>',
+    figure:'alt_angles',
+    p1_cards:[
+      { key:'A', text:'평행 공준에 의해 동위각 ∠a=∠b.', answer_pos:1 },
+      { key:'B', text:'∠b와 ∠c는 맞꼭지각이므로 ∠b=∠c.', answer_pos:2 },
+      { key:'C', text:'따라서 엇각 ∠a=∠c. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 평행하면 {1}이 같다 (∠a=∠b).<br>② 맞꼭지각: ∠b={2}.<br>③ 따라서 {3} ∠a=∠c.',
+    p2_answers:{'1':['동위각'],'2':['∠c'],'3':['엇각']},
+    p2_choices:['동위각','엇각','맞꼭지각','∠a','∠b','∠c','평행'],
+    p3_prompt:'평행선에서 동위각이 같음을 이용해 엇각도 같음을 증명하시오.' },
+
+  { id:'prf_m1_ext_angle', title:'삼각형 외각=다른 두 내각의 합', unit:'평면도형', difficulty:2, box:1, done:false,
+    given:'삼각형 내각의 합 = 180° · 평각 = 180°',
+    theorem:'삼각형 한 외각 = <b>이웃하지 않는 두 내각의 합</b>',
+    figure:'ext_angle',
+    p1_cards:[
+      { key:'A', text:'∠A+∠B+∠C=180° (내각의 합).', answer_pos:1 },
+      { key:'B', text:'∠C+∠ACD=180° (평각, ACD는 외각).', answer_pos:2 },
+      { key:'C', text:'두 식 비교: ∠ACD = ∠A+∠B. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 내각 합: ∠A+∠B+∠C = {1}.<br>② 평각: ∠C+∠ACD = {2}.<br>③ 따라서 외각 ∠ACD = {3}.',
+    p2_answers:{'1':['180'],'2':['180'],'3':['∠A+∠B']},
+    p2_choices:['180','90','360','∠A+∠B','∠A+∠C','∠B+∠C','∠A','∠B'],
+    p3_prompt:'삼각형 외각이 다른 두 내각의 합과 같음을 증명하시오.' },
+
+  { id:'prf_m1_polygon_sum', title:'n각형 내각의 합 = 180°(n−2)', unit:'평면도형', difficulty:3, box:1, done:false,
+    given:'삼각형 내각의 합 = 180°',
+    theorem:'볼록 n각형의 내각의 합 = <b>180°(n−2)</b>',
+    figure:'polygon_sum',
+    p1_cards:[
+      { key:'A', text:'한 꼭짓점에서 대각선을 그어 (n−2)개의 삼각형으로 분할.', answer_pos:1 },
+      { key:'B', text:'각 삼각형의 내각의 합 = 180°.', answer_pos:2 },
+      { key:'C', text:'전체 내각의 합 = (n−2)×180°. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① n각형은 한 꼭짓점에서 {1}개의 삼각형으로 분할.<br>② 각 삼각형 내각합 = {2}°.<br>③ 전체 = (n−2)×{3}°.',
+    p2_answers:{'1':['n−2','n-2'],'2':['180'],'3':['180']},
+    p2_choices:['n','n−1','n−2','180','360','90'],
+    p3_prompt:'대각선 분할로 n각형 내각합이 180°(n−2)임을 증명하시오.' },
+
+  { id:'prf_m1_polygon_ext', title:'다각형 외각의 합 = 360°', unit:'평면도형', difficulty:2, box:1, done:false,
+    given:'한 꼭짓점에서 내각+외각=180°',
+    theorem:'볼록 n각형의 외각의 합 = <b>360°</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'각 꼭짓점에서 내각+외각=180°.', answer_pos:1 },
+      { key:'B', text:'n개 꼭짓점 합: (내각합)+(외각합)=180n°.', answer_pos:2 },
+      { key:'C', text:'외각합 = 180n − 180(n−2) = 360°. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 각 꼭짓점: 내각+외각 = {1}°.<br>② 합: 내각합+외각합 = {2}n°.<br>③ 외각합 = 180n−180(n−2) = {3}°.',
+    p2_answers:{'1':['180'],'2':['180'],'3':['360']},
+    p2_choices:['90','180','360','n','n−2'],
+    p3_prompt:'n각형의 외각의 합이 항상 360°임을 증명하시오.' },
+
+  { id:'prf_m1_reg_polygon', title:'정n각형 한 내각의 크기', unit:'평면도형', difficulty:1, box:1, done:false,
+    given:'n각형 내각의 합 = 180°(n−2) · 정n각형은 모든 각이 같음',
+    theorem:'정n각형의 한 내각 = <b>180°(n−2)/n</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'n각형 내각합 = 180°(n−2).', answer_pos:1 },
+      { key:'B', text:'정n각형은 모든 내각이 같으므로 n등분.', answer_pos:2 },
+      { key:'C', text:'한 내각 = 180°(n−2)/n. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 내각합 = 180°({1}).<br>② 정n각형: n개 모두 {2}.<br>③ 한 내각 = 180°(n−2)/{3}.',
+    p2_answers:{'1':['n−2','n-2'],'2':['같다','같음'],'3':['n']},
+    p2_choices:['n','n−1','n−2','같다','다르다','180','360'],
+    p3_prompt:'정n각형 한 내각이 180°(n−2)/n임을 유도하시오.' },
+
+  // ── 수와 연산 (4) ──
+  { id:'prf_m1_prime_fact', title:'소인수분해의 유일성', unit:'수와연산', difficulty:3, box:1, done:false,
+    given:'1보다 큰 자연수는 소수이거나 합성수 · 소수의 정의',
+    theorem:'1보다 큰 모든 자연수는 <b>소인수의 곱</b>으로 유일하게 표현된다',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'자연수 n을 가장 작은 소수로 나눈다.', answer_pos:1 },
+      { key:'B', text:'몫이 1이 될 때까지 같은 과정 반복.', answer_pos:2 },
+      { key:'C', text:'유일성: 두 분해가 다르다면 모순 발생(소수의 정의에 위배).', answer_pos:3 },
+      { key:'D', text:'∴ 소인수분해는 순서 제외 유일. ✅', answer_pos:4 },
+    ], p1_answer:['A','B','C','D'],
+    p2_template:'① n을 가장 작은 {1}로 나눈다.<br>② 몫이 {2}이 될 때까지 반복.<br>③ 유일성: 두 분해가 다르면 {3}.',
+    p2_answers:{'1':['소수'],'2':['1'],'3':['모순']},
+    p2_choices:['소수','합성수','1','0','모순','참'],
+    p3_prompt:'12 = 2²×3 처럼 모든 자연수가 소인수분해됨을 설명하시오.' },
+
+  { id:'prf_m1_even_sum', title:'짝수+짝수=짝수', unit:'수와연산', difficulty:1, box:1, done:false,
+    given:'짝수의 정의: 2의 배수 (n=2k 꼴)',
+    theorem:'짝수와 짝수의 합은 <b>짝수</b>이다',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'짝수 a=2m, b=2n (m,n은 정수).', answer_pos:1 },
+      { key:'B', text:'a+b = 2m+2n = 2(m+n).', answer_pos:2 },
+      { key:'C', text:'2(m+n)은 2의 배수, 즉 짝수. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① a={1}m, b=2n.<br>② a+b = 2(m+{2}).<br>③ ∴ 짝수 = {3}의 배수.',
+    p2_answers:{'1':['2'],'2':['n'],'3':['2']},
+    p2_choices:['1','2','3','m','n','m+n'],
+    p3_prompt:'두 짝수의 합이 항상 짝수임을 증명하시오.' },
+
+  { id:'prf_m1_neg_neg', title:'(−)×(−)=(+)', unit:'수와연산', difficulty:2, box:1, done:false,
+    given:'분배법칙 · 0×a=0 · −a는 a의 덧셈 역원',
+    theorem:'음수 × 음수 = <b>양수</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'0 = (−a)·0 = (−a)(b+(−b)).', answer_pos:1 },
+      { key:'B', text:'분배: 0 = (−a)b + (−a)(−b).', answer_pos:2 },
+      { key:'C', text:'(−a)b = −(ab)이므로 (−a)(−b) = ab. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 0 = (−a)·(b+({1})).<br>② {2}법칙으로 (−a)b+(−a)(−b)=0.<br>③ ∴ (−a)(−b) = {3}.',
+    p2_answers:{'1':['−b','-b'],'2':['분배'],'3':['ab']},
+    p2_choices:['b','−b','ab','−ab','분배','결합','교환'],
+    p3_prompt:'(−2)×(−3)=6임을 분배법칙으로 증명하시오.' },
+
+  { id:'prf_m1_gcd_lcm', title:'GCD × LCM = 두 수의 곱', unit:'수와연산', difficulty:2, box:1, done:false,
+    given:'두 자연수의 소인수분해',
+    theorem:'두 자연수 a,b에 대해 <b>gcd(a,b) × lcm(a,b) = a × b</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'각 소인수에 대해 gcd는 min지수, lcm은 max지수.', answer_pos:1 },
+      { key:'B', text:'min(p,q)+max(p,q) = p+q (소인수별 지수합 보존).', answer_pos:2 },
+      { key:'C', text:'∴ gcd×lcm = a×b. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① gcd: 각 소인수 {1}지수, lcm: {2}지수.<br>② min+max = p+q.<br>③ ∴ gcd×lcm = a×{3}.',
+    p2_answers:{'1':['min','최소'],'2':['max','최대'],'3':['b']},
+    p2_choices:['min','max','최소','최대','a','b','a+b'],
+    p3_prompt:'12와 18의 gcd·lcm을 구해 곱이 12×18임을 확인·일반화하시오.' },
+
+  // ── 문자와 식 (4) ──
+  { id:'prf_m1_exp_mul', title:'지수법칙 ① aᵐ·aⁿ=aᵐ⁺ⁿ', unit:'문자와식', difficulty:1, box:1, done:false,
+    given:'거듭제곱의 정의: aⁿ = a를 n번 곱함',
+    theorem:'<b>aᵐ × aⁿ = aᵐ⁺ⁿ</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'aᵐ = a×a×…×a (m번).', answer_pos:1 },
+      { key:'B', text:'aⁿ = a×a×…×a (n번).', answer_pos:2 },
+      { key:'C', text:'aᵐ·aⁿ = a를 (m+n)번 곱함 = aᵐ⁺ⁿ. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① aᵐ = a를 {1}번 곱.<br>② aⁿ = a를 {2}번 곱.<br>③ aᵐ·aⁿ = a를 ({3})번 곱.',
+    p2_answers:{'1':['m'],'2':['n'],'3':['m+n']},
+    p2_choices:['m','n','m+n','m−n','mn','m/n'],
+    p3_prompt:'a³·a²=a⁵임을 정의로부터 보이시오.' },
+
+  { id:'prf_m1_exp_pow', title:'지수법칙 ② (aᵐ)ⁿ=aᵐⁿ', unit:'문자와식', difficulty:2, box:1, done:false,
+    given:'aᵐ·aⁿ=aᵐ⁺ⁿ',
+    theorem:'<b>(aᵐ)ⁿ = aᵐⁿ</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'(aᵐ)ⁿ = aᵐ을 n번 곱함.', answer_pos:1 },
+      { key:'B', text:'곱셈 지수법칙: aᵐ·aᵐ·…·aᵐ = aᵐ⁺ᵐ⁺…⁺ᵐ (n개 m).', answer_pos:2 },
+      { key:'C', text:'지수합 = mn이므로 = aᵐⁿ. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① (aᵐ)ⁿ = aᵐ을 {1}번 곱.<br>② 지수합 = m×{2}.<br>③ ∴ aᵐⁿ = a^{3}.',
+    p2_answers:{'1':['n'],'2':['n'],'3':['mn']},
+    p2_choices:['m','n','m+n','mn','m−n','m/n'],
+    p3_prompt:'(a²)³ = a⁶임을 정의로 보이시오.' },
+
+  { id:'prf_m1_dist', title:'분배법칙 a(b+c)=ab+ac', unit:'문자와식', difficulty:1, box:1, done:false,
+    given:'곱셈은 같은 수의 반복된 덧셈',
+    theorem:'<b>a(b+c) = ab + ac</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'a(b+c) = (b+c)를 a번 더함.', answer_pos:1 },
+      { key:'B', text:'= (b+b+…+b) + (c+c+…+c) (각 a개).', answer_pos:2 },
+      { key:'C', text:'= ab + ac. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① a(b+c) = (b+c)를 {1}번 더함.<br>② = ab + a{2}.<br>③ ∴ {3}+ac.',
+    p2_answers:{'1':['a'],'2':['c'],'3':['ab']},
+    p2_choices:['a','b','c','ab','ac','bc'],
+    p3_prompt:'3(x+5)=3x+15임을 분배법칙으로 보이시오.' },
+
+  { id:'prf_m1_like_terms', title:'동류항 정리 원리', unit:'문자와식', difficulty:1, box:1, done:false,
+    given:'분배법칙 · 같은 문자의 거듭제곱은 동류항',
+    theorem:'<b>ax + bx = (a+b)x</b>',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'분배법칙 역방향으로 ax+bx에서 x를 묶어낸다.', answer_pos:1 },
+      { key:'B', text:'ax+bx = (a+b)x.', answer_pos:2 },
+      { key:'C', text:'∴ 동류항 계수만 더하면 된다. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① ax+bx에서 공통 인수 {1}를 묶음.<br>② = ({2})x.<br>③ 동류항: {3}만 더함.',
+    p2_answers:{'1':['x'],'2':['a+b'],'3':['계수']},
+    p2_choices:['a','b','x','a+b','ab','계수','지수'],
+    p3_prompt:'2x+5x=7x임을 분배법칙으로 설명하시오.' },
+
+  // ── 방정식 (2) ──
+  { id:'prf_m1_eq_props', title:'등식의 성질 · 이항 원리', unit:'방정식', difficulty:1, box:1, done:false,
+    given:'등식: 양변이 같다 · 같은 수를 더해도 등식 성립',
+    theorem:'<b>a=b ⇒ a+c=b+c</b>이며, 이를 이용해 항을 부호 바꿔 옮길 수 있다',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'a=b이면 양변에 c를 더해도 a+c=b+c.', answer_pos:1 },
+      { key:'B', text:'x+3=7에서 양변에 −3을 더하면 x = 7−3.', answer_pos:2 },
+      { key:'C', text:'결과적으로 +3이 부호 바꾸어 우변으로 이항. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① a=b ⇒ a+c={1}+c.<br>② x+3=7에서 양변에 {2}을 더함.<br>③ ∴ x=7−{3}.',
+    p2_answers:{'1':['b'],'2':['−3','-3'],'3':['3']},
+    p2_choices:['a','b','3','−3','7','x'],
+    p3_prompt:'2x+5=11에서 5를 이항하여 풀이 과정을 정당화하시오.' },
+
+  { id:'prf_m1_lin_eq_unique', title:'일차방정식 해의 유일성', unit:'방정식', difficulty:2, box:1, done:false,
+    given:'등식의 성질 · ax=b (a≠0)',
+    theorem:'<b>ax=b (a≠0)</b>는 유일한 해 x=b/a를 가진다',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'양변을 a로 나누면 x=b/a (해의 존재).', answer_pos:1 },
+      { key:'B', text:'두 해 x₁,x₂가 있다면 ax₁=ax₂=b.', answer_pos:2 },
+      { key:'C', text:'a≠0이므로 x₁=x₂ (유일성). ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① 양변을 {1}로 나눔: x=b/a.<br>② 두 해 가정: ax₁={2}.<br>③ a≠{3}이므로 x₁=x₂.',
+    p2_answers:{'1':['a'],'2':['ax₂','b'],'3':['0']},
+    p2_choices:['0','1','a','b','ax₂','b/a'],
+    p3_prompt:'2x=10의 해가 5뿐임을 증명하시오.' },
+
+  // ── 좌표와 그래프 (1) ──
+  { id:'prf_m1_propor_line', title:'정비례 y=ax 그래프는 직선', unit:'그래프', difficulty:2, box:1, done:false,
+    given:'두 점을 지나는 직선의 기울기 정의',
+    theorem:'<b>y=ax</b>의 그래프는 원점을 지나는 <b>직선</b>이다',
+    figure:null,
+    p1_cards:[
+      { key:'A', text:'x=0 ⇒ y=0이므로 원점 (0,0)을 지난다.', answer_pos:1 },
+      { key:'B', text:'임의 두 점 (x₁,ax₁),(x₂,ax₂)의 기울기 = a로 일정.', answer_pos:2 },
+      { key:'C', text:'기울기가 일정하면 직선. ✅', answer_pos:3 },
+    ], p1_answer:['A','B','C'],
+    p2_template:'① x=0 ⇒ y={1} (원점).<br>② 두 점 기울기 = (ax₂−ax₁)/(x₂−x₁) = {2}.<br>③ 일정 기울기 ⇒ {3}.',
+    p2_answers:{'1':['0'],'2':['a'],'3':['직선']},
+    p2_choices:['0','1','a','x','직선','곡선','쌍곡선'],
+    p3_prompt:'y=2x의 그래프가 원점을 지나는 직선임을 증명하시오.' },
+];
+
+// ── 도형 SVG 묶음 ──
+const FIGURES = {
+  tri_sum: `<svg viewBox="0 0 300 260" width="100%" style="max-width:280px">
+    <style>.tri{fill:none;stroke:#1e40af;stroke-width:2.2}.aux{stroke:#9ca3af;stroke-width:1.5;stroke-dasharray:5 3}.arc{fill:none;stroke-width:1.8}.vlabel{font:bold 14px sans-serif;fill:#111}.alabel{font:italic 11px sans-serif;font-weight:600}.aux-label{font:11px sans-serif;fill:#6b7280}</style>
+    <line class="aux" x1="20" y1="40" x2="280" y2="40"/><text class="aux-label" x="4" y="44">ℓ</text>
+    <polygon class="tri" points="150,40 40,220 260,220"/>
+    <path class="arc" stroke="#dc2626" d="M 122,40 A 28,28 0 0,0 135.6,55.8"/><text class="alabel" fill="#dc2626" x="98" y="32">∠DAB</text>
+    <path class="arc" stroke="#059669" d="M 135.6,55.8 A 24,24 0 0,0 164.4,55.8"/><text class="alabel" fill="#059669" x="142" y="75">∠A</text>
+    <path class="arc" stroke="#d97706" d="M 164.4,55.8 A 28,28 0 0,0 178,40"/><text class="alabel" fill="#d97706" x="170" y="32">∠CAE</text>
+    <path class="arc" stroke="#dc2626" d="M 60,220 A 20,20 0 0,0 50.43,202.93"/><text class="alabel" fill="#dc2626" x="62" y="210">∠B</text>
+    <path class="arc" stroke="#d97706" d="M 249.57,202.93 A 20,20 0 0,0 240,220"/><text class="alabel" fill="#d97706" x="222" y="210">∠C</text>
+    <circle cx="150" cy="40" r="3"/><circle cx="40" cy="220" r="3"/><circle cx="260" cy="220" r="3"/>
+    <text class="vlabel" x="145" y="32">A</text><text class="vlabel" x="26" y="238">B</text><text class="vlabel" x="266" y="238">C</text>
+    <text class="aux-label" x="28" y="52">D</text><text class="aux-label" x="266" y="52">E</text>
+  </svg>`,
+  vertical: `<svg viewBox="0 0 300 200" width="100%" style="max-width:280px">
+    <style>.ln{stroke:#1e40af;stroke-width:2.2}.lbl{font:bold 13px sans-serif;fill:#111}</style>
+    <line class="ln" x1="30" y1="50" x2="270" y2="150"/><line class="ln" x1="30" y1="150" x2="270" y2="50"/>
+    <circle cx="150" cy="100" r="3"/>
+    <text class="lbl" fill="#dc2626" x="125" y="80">∠1</text>
+    <text class="lbl" fill="#059669" x="160" y="80">∠2</text>
+    <text class="lbl" fill="#dc2626" x="160" y="130">∠3</text>
+    <text class="lbl" fill="#059669" x="125" y="130">∠4</text>
+  </svg>`,
+  alt_angles: `<svg viewBox="0 0 300 220" width="100%" style="max-width:280px">
+    <style>.par{stroke:#1e40af;stroke-width:2}.cut{stroke:#dc2626;stroke-width:2}.lbl{font:italic bold 12px sans-serif}</style>
+    <line class="par" x1="20" y1="60" x2="280" y2="60"/>
+    <line class="par" x1="20" y1="160" x2="280" y2="160"/>
+    <line class="cut" x1="80" y1="20" x2="220" y2="200"/>
+    <text class="lbl" fill="#059669" x="135" y="55">∠a</text>
+    <text class="lbl" fill="#d97706" x="165" y="80">∠b</text>
+    <text class="lbl" fill="#059669" x="135" y="155">∠c</text>
+    <text x="280" y="64" font-size="12" fill="#1e40af">ℓ₁</text>
+    <text x="280" y="164" font-size="12" fill="#1e40af">ℓ₂ ∥ ℓ₁</text>
+  </svg>`,
+  ext_angle: `<svg viewBox="0 0 320 220" width="100%" style="max-width:300px">
+    <style>.tri{fill:none;stroke:#1e40af;stroke-width:2.2}.aux{stroke:#9ca3af;stroke-width:1.5;stroke-dasharray:5 3}.lbl{font:bold 13px sans-serif}</style>
+    <polygon class="tri" points="60,180 240,180 150,40"/>
+    <line class="aux" x1="240" y1="180" x2="300" y2="180"/>
+    <text class="lbl" fill="#111" x="50" y="200">B</text>
+    <text class="lbl" fill="#111" x="240" y="200">C</text>
+    <text class="lbl" fill="#111" x="145" y="32">A</text>
+    <text class="lbl" fill="#dc2626" x="78" y="172">∠B</text>
+    <text class="lbl" fill="#059669" x="155" y="60">∠A</text>
+    <text class="lbl" fill="#d97706" x="208" y="172">∠C</text>
+    <text class="lbl" fill="#7c3aed" x="248" y="172">∠ACD</text>
+    <text class="lbl" fill="#9ca3af" x="295" y="195">D</text>
+  </svg>`,
+  polygon_sum: `<svg viewBox="0 0 280 240" width="100%" style="max-width:260px">
+    <style>.pent{fill:none;stroke:#1e40af;stroke-width:2.2}.diag{stroke:#dc2626;stroke-width:1.5;stroke-dasharray:4 3}</style>
+    <polygon class="pent" points="140,30 245,110 205,225 75,225 35,110"/>
+    <line class="diag" x1="140" y1="30" x2="205" y2="225"/>
+    <line class="diag" x1="140" y1="30" x2="75" y2="225"/>
+    <text font-size="11" fill="#6b7280" x="120" y="180">3 triangles</text>
+  </svg>`,
+};
+
+
+// ── 상태 ──
+let state = {
+  currentProofId: null,
+  currentPhase: 0,
+  phase1Order: [],
+  phase1Tries: 0,
+  phase1StartTime: null,
+  phase1Correct: 0,
+  phase2Answers: {},
+  p2ActiveKey: null,
+  phase3Text: '',
+};
+
+function proof() { return PROOFS.find(p => p.id === state.currentProofId); }
+
+// ── 화면 전환 ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function setTop(title, badge, progress) {
+  document.getElementById('topTitle').textContent = title;
+  document.getElementById('phaseBadge').textContent = badge;
+  document.getElementById('progressFill').style.width = progress + '%';
+}
+function setFooter(html) {
+  document.getElementById('footer').innerHTML = html;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2000);
+}
+
+// ── 홈 ──
+function goHome() {
+  state.currentProofId = null;
+  setTop('오늘의 학습', '홈', 0);
+  renderHome();
+  setFooter('');
+  showScreen('screenHome');
+}
+function renderHome() {
+  const doneCount = PROOFS.filter(p => p.done).length;
+  document.getElementById('homeProgress').textContent = `${doneCount} / ${PROOFS.length} 증명`;
+  const list = document.getElementById('proofList');
+  list.innerHTML = PROOFS.map(p => `
+    <div class="proof-item ${p.done?'done':''}" onclick="startProof('${p.id}')">
+      <div class="title">${p.title} ${p.done?'✓':''}</div>
+      <div class="meta">
+        ${p.unit?`<span style="background:#eef2ff;color:#3730a3;padding:1px 7px;border-radius:4px;font-weight:600">${p.unit}</span>`:''}
+        <span>난이도 ${'★'.repeat(p.difficulty)}${'☆'.repeat(3-p.difficulty)}</span>
+        ${p.figure?'<span style="color:#1e40af;font-weight:600">📐 도형</span>':''}
+      </div>
+    </div>`).join('');
+}
+
+// ── 증명 시작 (Phase 1) ──
+function startProof(id) {
+  state.currentProofId = id;
+  state.currentPhase = 1;
+  state.phase1Tries = 0;
+  state.phase1StartTime = Date.now();
+  const p = proof();
+  setTop(p.title, '1/3', 33);
+  document.getElementById('given1').innerHTML = p.given;
+  document.getElementById('theorem1').innerHTML = p.theorem;
+  document.getElementById('figureBox').innerHTML = (p.figure && FIGURES[p.figure]) || '<div style="padding:30px;color:#9ca3af;font-size:13px">(이 증명은 도형이 없습니다)</div>';
+  // 카드를 셔플해서 배치
+  const shuffled = [...p.p1_cards].sort(() => Math.random() - 0.5);
+  state.phase1Order = shuffled.map(c => c.key);
+  selectedIdx = null;
+  renderPhase1Cards();
+  setFooter(`<button class="btn btn-primary" onclick="submitPhase1()">제출</button>`);
+  showScreen('screenPhase1');
+}
+
+let selectedIdx = null;
+function renderPhase1Cards() {
+  const p = proof();
+  const n = state.phase1Order.length;
+  const html = state.phase1Order.map((key, idx) => {
+    const card = p.p1_cards.find(c => c.key === key);
+    const sel = selectedIdx === idx ? ' selected' : '';
+    return `<div class="p1-row">
+      <div class="card${sel}" onclick="tapCard(${idx})">
+        <span class="num">${idx+1}</span>${card.text}
+      </div>
+      <div class="p1-arrows">
+        <button onclick="event.stopPropagation();moveCard(${idx},-1)" ${idx===0?'disabled':''}>▲</button>
+        <button onclick="event.stopPropagation();moveCard(${idx},1)" ${idx===n-1?'disabled':''}>▼</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('phase1Cards').innerHTML = html;
+}
+function tapCard(idx) {
+  if (selectedIdx === null) { selectedIdx = idx; }
+  else if (selectedIdx === idx) { selectedIdx = null; }
+  else {
+    const arr = state.phase1Order;
+    [arr[selectedIdx], arr[idx]] = [arr[idx], arr[selectedIdx]];
+    selectedIdx = null;
+  }
+  renderPhase1Cards();
+}
+function moveCard(idx, dir) {
+  const arr = state.phase1Order;
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  [arr[idx], arr[j]] = [arr[j], arr[idx]];
+  selectedIdx = null;
+  renderPhase1Cards();
+}
+
+// ── Phase 1 제출 ──
+function submitPhase1() {
+  state.phase1Tries++;
+  const p = proof();
+  const correct = p.p1_answer;
+  let correctCount = 0;
+  state.phase1Order.forEach((k, i) => { if (k === correct[i]) correctCount++; });
+  state.phase1Correct = correctCount;
+
+  const elapsed = Math.round((Date.now() - state.phase1StartTime) / 1000);
+  const hero = document.getElementById('p1Hero');
+  const icon = document.getElementById('p1Icon');
+  const title = document.getElementById('p1Title');
+  const msg = document.getElementById('p1Msg');
+
+  document.getElementById('p1Correct').textContent = `${correctCount}/${correct.length}`;
+  document.getElementById('p1Time').textContent = `${elapsed}초`;
+  document.getElementById('p1Tries').textContent = `${state.phase1Tries}회`;
+
+  const fb = document.getElementById('p1Feedback');
+  const feedbackCards = state.phase1Order.map((k,i) => {
+    const card = p.p1_cards.find(c => c.key === k);
+    const isRight = k === correct[i];
+    return `<div class="card ${isRight?'correct':'wrong'}" style="cursor:default;margin-bottom:8px">
+      <span class="num">${i+1}</span>${card.text}
+      ${!isRight ? `<div style="margin-top:6px;font-size:11px;color:#dc2626">→ 정답 위치: ${correct.indexOf(k)+1}번</div>` : ''}
+    </div>`;
+  }).join('');
+  fb.innerHTML = feedbackCards;
+
+  if (correctCount === correct.length) {
+    hero.className = 'hero pass';
+    icon.textContent = '🎉';
+    title.textContent = '정답입니다!';
+    title.style.color = '#16a34a';
+    msg.textContent = `Phase 1 통과 · +10 XP`;
+    setFooter(`<button class="btn btn-success" onclick="startPhase2()">Phase 2로 →</button>`);
+  } else {
+    hero.className = 'hero fail';
+    icon.textContent = '🤔';
+    title.textContent = '다시 생각해보자';
+    title.style.color = '#dc2626';
+    msg.textContent = `${correctCount}개 맞았어요 · 힌트를 보고 다시 시도`;
+    setFooter(`
+      <button class="btn btn-secondary" onclick="showAnswer()">정답 보기</button>
+      <button class="btn btn-primary" onclick="retryPhase1()">다시 시도</button>
+    `);
+  }
+  showScreen('screenPhase1Result');
+}
+function retryPhase1() {
+  state.phase1StartTime = Date.now();
+  showScreen('screenPhase1');
+  setFooter(`<button class="btn btn-primary" onclick="submitPhase1()">제출</button>`);
+}
+function showAnswer() {
+  const p = proof();
+  state.phase1Order = [...p.p1_answer];
+  renderPhase1Cards();
+  toast('정답 순서로 정렬됐어요');
+  showScreen('screenPhase1');
+  setFooter(`<button class="btn btn-primary" onclick="submitPhase1()">제출</button>`);
+}
+
+// ── Phase 2 ──
+function startPhase2() {
+  state.currentPhase = 2;
+  state.phase2Answers = {};
+  const p = proof();
+  setTop(p.title, '2/3', 66);
+  document.getElementById('figureBox2').innerHTML = (p.figure && FIGURES[p.figure]) || '<div style="padding:20px;color:#9ca3af;font-size:12px">(도형 없음)</div>';
+
+  state.p2ActiveKey = null;
+  state.p2UsedChoices = {};
+  renderPhase2();
+  setFooter(`<button class="btn btn-primary" onclick="submitPhase2()">제출</button>`);
+  showScreen('screenPhase2');
+}
+function renderPhase2() {
+  const p = proof();
+  let tmpl = p.p2_template;
+  Object.keys(p.p2_answers).forEach(k => {
+    const val = state.phase2Answers[k];
+    const active = state.p2ActiveKey === k ? ' active' : '';
+    const filled = val ? ' filled' : '';
+    const display = val || '&nbsp;?&nbsp;';
+    tmpl = tmpl.replace(`{${k}}`, `<span class="blank${active}${filled}" onclick="activateBlank('${k}')">${display}</span>`);
+  });
+  document.getElementById('fillBox').innerHTML = tmpl;
+
+  const choices = p.p2_choices || [];
+  const usedChoices = Object.values(state.phase2Answers).filter(Boolean);
+  const choiceHtml = choices.map(c => {
+    const used = usedChoices.includes(c) ? ' used' : '';
+    return `<button class="choice${used}" onclick="pickChoice('${c.replace(/'/g,"\\'")}')">${c}</button>`;
+  }).join('');
+  document.getElementById('p2Choices').innerHTML = `<div class="choice-title">📝 보기에서 골라 빈칸을 눌러 채우세요</div><div class="choice-grid">${choiceHtml}</div>`;
+}
+function activateBlank(k) {
+  if (state.phase2Answers[k]) {
+    delete state.phase2Answers[k];
+    state.p2ActiveKey = k;
+  } else {
+    state.p2ActiveKey = state.p2ActiveKey === k ? null : k;
+  }
+  renderPhase2();
+}
+function pickChoice(val) {
+  const p = proof();
+  let k = state.p2ActiveKey;
+  if (!k) {
+    k = Object.keys(p.p2_answers).find(key => !state.phase2Answers[key]);
+    if (!k) return;
+  }
+  state.phase2Answers[k] = val;
+  const keys = Object.keys(p.p2_answers);
+  const nextEmpty = keys.find(key => !state.phase2Answers[key]);
+  state.p2ActiveKey = nextEmpty || null;
+  renderPhase2();
+}
+
+function submitPhase2() {
+  const p = proof();
+  let correctCount = 0, total = 0;
+  const results = {};
+  Object.keys(p.p2_answers).forEach(k => {
+    total++;
+    const ans = (state.phase2Answers[k] || '').trim();
+    const acceptable = p.p2_answers[k];
+    const ok = acceptable.some(a => a === ans || a.replace(/\s/g,'') === ans.replace(/\s/g,''));
+    results[k] = { ok, given: ans, expected: acceptable[0] };
+    if (ok) correctCount++;
+  });
+
+  const hero = document.getElementById('p2Hero');
+  const icon = document.getElementById('p2Icon');
+  const title = document.getElementById('p2Title');
+  const msg = document.getElementById('p2Msg');
+
+  if (correctCount === total) {
+    hero.className = 'hero pass';
+    icon.textContent = '🎯';
+    title.textContent = '완벽해요!';
+    title.style.color = '#16a34a';
+    msg.textContent = `${total}/${total} 정답 · Phase 2 통과`;
+  } else {
+    hero.className = 'hero partial';
+    icon.textContent = '👍';
+    title.textContent = '거의 다 왔어요!';
+    title.style.color = '#d97706';
+    msg.textContent = `${correctCount}/${total} 정답 · 틀린 곳 확인해보세요`;
+  }
+
+  let tmpl = p.p2_template;
+  Object.keys(p.p2_answers).forEach(k => {
+    const r = results[k];
+    const cls = r.ok ? 'correct' : 'wrong';
+    const hint = !r.ok ? ` <span style="color:#dc2626;font-size:11px">(→ ${r.expected})</span>` : '';
+    tmpl = tmpl.replace(`{${k}}`, `<span class="blank ${cls}">${r.given||'(빈칸)'}</span>${hint}`);
+  });
+  document.getElementById('p2Review').innerHTML = tmpl;
+
+  const hintEl = document.getElementById('p2Hint');
+  if (correctCount === total) {
+    hintEl.style.display = 'none';
+    setFooter(`<button class="btn btn-success" onclick="startPhase3()">Phase 3로 →</button>`);
+  } else {
+    hintEl.style.display = 'block';
+    hintEl.innerHTML = '💡 틀린 부분을 고쳐서 다시 제출해보세요. 힌트: 평행선에서 엇갈려 만나는 각은 <b>엇각</b>입니다.';
+    setFooter(`<button class="btn btn-primary" onclick="startPhase2()">다시 제출</button>`);
+  }
+  showScreen('screenPhase2Result');
+}
+
+// ── Phase 3 ──
+function startPhase3() {
+  state.currentPhase = 3;
+  const p = proof();
+  setTop(p.title, '3/3', 100);
+  document.getElementById('phase3Prompt').innerHTML = '<b>문제:</b> ' + p.p3_prompt;
+  document.getElementById('proofText').value = '';
+  document.getElementById('phase3FigureHint').style.display = 'none';
+  setFooter(`<button class="btn btn-primary" onclick="submitPhase3()">제출 (교사 검토)</button>`);
+  showScreen('screenPhase3');
+}
+function showHint() {
+  const p = proof();
+  const el = document.getElementById('phase3FigureHint');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="figure-box">${(p.figure && FIGURES[p.figure]) || '(도형 없음)'}</div>`;
+  toast('도형 힌트 사용');
+}
+function submitPhase3() {
+  const text = document.getElementById('proofText').value.trim();
+  if (text.length < 10) { toast('풀이를 조금 더 자세히 써주세요'); return; }
+  state.phase3Text = text;
+  document.getElementById('submittedText').textContent = text;
+  setTop(proof().title, '⏳ 검토', 100);
+  setFooter('');
+  showScreen('screenReview');
+  // 목업: 3초 후 자동 승인
+  setTimeout(approveProof, 3000);
+}
+
+// ── 승인 + SRS ──
+function approveProof() {
+  const p = proof();
+  const before = p.box;
+  const after = Math.min(5, before + 1);
+  p.box = after;
+  p.done = true;
+
+  document.getElementById('boxBefore').textContent = before;
+  document.getElementById('boxAfter').textContent = after;
+  const intervals = [1, 3, 7, 14, 30];
+  document.getElementById('nextReview').textContent = intervals[after-1] + '일';
+
+  const boxes = document.getElementById('srsBoxes');
+  boxes.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const b = document.createElement('div');
+    b.className = 'b';
+    b.textContent = i;
+    if (i < after) b.classList.add('reached');
+    if (i === after) b.classList.add('cur');
+    boxes.appendChild(b);
+  }
+
+  setTop(proof().title, '완료', 100);
+  setFooter(`<button class="btn btn-primary" onclick="goHome()">홈으로 돌아가기</button>`);
+  showScreen('screenApproved');
+}
+
+// 초기 로드
+goHome();
+</script>
+</body>
+</html>
